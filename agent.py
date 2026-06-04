@@ -18,7 +18,7 @@ vector_db = Chroma(persist_directory="./chroma_db", embedding_function=embedding
 retriever = vector_db.as_retriever(search_kwargs={"k": 3}) # Fetches top 3 chunks
 
 # 3. Initialize the Core LLM (The Thinker)
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 
 # ---------------------------------------------------------
 # LANGGRAPH ARCHITECTURE
