@@ -45,7 +45,7 @@ export default function Home() {
 
     try {
       // NOTE: You MUST change this URL once you deploy the new Render backend for this ghost instance.
-      const response = await fetch('https://cf-tech-ai.onrender.com/api/chat', {
+      const response = await fetch('https://cf-tech-demo.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage })
