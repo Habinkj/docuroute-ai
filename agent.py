@@ -38,7 +38,7 @@ def route_intent(state: AgentState):
     message = state["user_message"]
     
     # We ask the LLM to classify the user's message
-    prompt = f"""You are an intelligent router for CFTech, a manufacturing company. 
+    prompt = f"""You are an intelligent router for DocuRoute AI, a manufacturing company. 
     Analyze the user's message and output exactly one word: 'TECHNICAL' if they are asking about machine specifications, features, or how things work. Output 'GENERAL' if they are just saying hello or asking non-machine questions.
     User Message: {message}"""
     
@@ -79,14 +79,14 @@ def generate_answer(state: AgentState):
     
     # The AI changes its personality based on the route
     if intent == "TECHNICAL":
-        prompt = f"""You are a senior technical sales engineer for CFTech. 
+        prompt = f"""You are a senior technical sales engineer for DocuRoute AI. 
         Answer the user's question using ONLY the following context. 
         If the context does not contain the answer, do not guess. Say you need to consult the engineering team.
         
         Context: {context}
         Question: {message}"""
     else:
-        prompt = f"""You are a helpful representative for CFTech. 
+        prompt = f"""You are a helpful representative for DocuRoute AI. 
         Respond politely and professionally to this message: {message}"""
         
     response = llm.invoke(prompt)
@@ -139,7 +139,7 @@ app = workflow.compile()
 # LOCAL TESTING TERMINAL
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    print("\n=== CFTech ENTERPRISE AI ONLINE ===\n")
+    print("\n=== DocuRoute AI ENTERPRISE AI ONLINE ===\n")
     
     # Test 1: Technical Query
     test_message_1 = "What is the voltage of the Industrial Steam Cooker?"

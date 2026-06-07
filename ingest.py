@@ -14,7 +14,7 @@ if not api_key:
 print("Starting the ingestion process...")
 
 # 2. Load the Master Catalog
-pdf_path = "data/CF_Tech_Master_Catalog.pdf"
+pdf_path = "data/Caterpillar_Log.pdf"
 try:
     loader = PyMuPDFLoader(pdf_path)
     documents = loader.load()
@@ -42,10 +42,31 @@ embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 persist_directory = "./chroma_db"
 print("Generating vectors and building Chroma database. This may take a moment...")
 
-vector_db = Chroma.from_documents(
-    documents=chunks,
-    embedding=embeddings,
-    persist_directory=persist_directory
-)
+import time
 
-print(f"SUCCESS: Enterprise AI Knowledge Base built and saved to {persist_directory}!")
+print("Generating vectors and building Chroma database in safe batches...")
+
+# Initialize an empty Chroma database first
+vector_db = None
+batch_size = 75  # Stay safely under the 100 limit
+
+# Loop through chunks in safe increments
+for i in range(0, len(chunks), batch_size):
+    batch = chunks[i:i + batch_size]
+    print(f"Processing batch {i//batch_size + 1}/{(len(chunks)-1)//batch_size + 1} ({len(batch)} chunks)...")
+    
+    if vector_db is None:
+        vector_db = Chroma.from_documents(
+            documents=batch,
+            embedding=embeddings,
+            persist_directory=persist_directory
+        )
+    else:
+        vector_db.add_documents(documents=batch)
+    
+    # Sleep for a full 65 seconds to guarantee the Google quota resets
+    if i + batch_size < len(chunks):
+        print("Waiting 65 seconds for Google API quota to reset. Do not close terminal...")
+        time.sleep(65)
+
+print("Chroma database successfully built and verified!")

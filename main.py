@@ -41,5 +41,5 @@ async def chat_endpoint(request: ChatRequest):
         # THE FIX: The fallback error must also bypass the Armor Plate
         return {
             "role": "assistant",
-            "content": "I am currently undergoing maintenance. Please contact the CFTech sales team directly."
+            "content": "I am currently undergoing maintenance. Please contact the DocuRoute AI sales team directly."
         }

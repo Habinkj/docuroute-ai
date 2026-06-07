@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-target_url = "https://www.cftech.co.in/iqf-multijet-freezer.htm"
+target_url = "https://www.DocuRoute AI.co.in/iqf-multijet-freezer.htm"
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
