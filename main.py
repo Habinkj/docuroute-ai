@@ -1,19 +1,35 @@
+import logging
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import logging
-from agent import app as kiliyara_agent  # Importing the compiled LangGraph engine
+
+# Importing the compiled LangGraph engine under the correct enterprise namespace
+from agent import app as docuroute_agent  
+
+# 1. Enterprise Observability: Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("DocuRouteGateway")
 
 # Initialize FastAPI Microservice
-app = FastAPI(title="Kiliyara AI API Gateway", version="1.0.0")
+app = FastAPI(title="DocuRoute AI API Gateway (CFTech Modernization)", version="1.1.0")
 
-# Configure CORS for decoupled frontend communication
+# 2. Hardened Perimeter (CORS): Passes B2B procurement audits while allowing local dev
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Local Next.js development
+    "https://docuroute-cftech.vercel.app",  # Placeholder for your live Vercel UI
+    os.getenv("FRONTEND_PRODUCTION_URL", "https://cftech.in")
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict this to your Vercel domain in production
+    allow_origins=ALLOWED_ORIGINS, 
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Pydantic Schema Validation
@@ -27,28 +43,31 @@ class ChatResponse(BaseModel):
 # Health Check Endpoint (Keep-Alive for Render Free Tier)
 @app.get("/health")
 async def health_check():
-    """Decoy endpoint to keep Render awake without triggering Gemini."""
-    return {"status": "Kiliyara AI backend is active and operational."}
+    """Decoy endpoint to keep Render awake without triggering expensive LLM compute."""
+    return {"status": "DocuRoute AI gateway is active, isolated, and non-blocking."}
 
-# Primary AI Routing Endpoint with Apex Fault Tolerance
+# Primary AI Routing Endpoint with Apex Redundancy & Async Non-Blocking Execution
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
-        # Trigger the LangGraph state machine
-        result = kiliyara_agent.invoke({"user_message": request.message})
+        logger.info(f"Incoming payload received. Length: {len(request.message)} chars")
+        
+        # 3. The Asphyxiation Patch: Using await and .ainvoke() to keep the ASGI event loop open
+        result = await docuroute_agent.ainvoke({"user_message": request.message})
         
         # Extract the final state variables
-        final_answer = result.get("final_answer", "Error generating response.")
+        final_answer = result.get("final_answer", "Error generating technical response.")
         detected_intent = result.get("intent", "UNKNOWN")
         
+        logger.info(f"Execution resolved successfully. Routed Intent: {detected_intent}")
         return ChatResponse(response=final_answer, intent=detected_intent)
         
     except Exception as e:
-        # The Apex Standard: Never fail silently, never crash the ASGI worker.
-        logging.error(f"CRITICAL: Engine invocation failed. Error: {str(e)}")
+        # The Apex Standard: Catch at the edge, capture full stack trace in Render logs, never drop the client.
+        logger.error(f"CRITICAL: DocuGraph execution failed. Error: {str(e)}", exc_info=True)
         
-        # Return a graceful, structured degradation to the frontend matching the Pydantic schema
+        # Return a graceful, structured B2B degradation matching the Pydantic schema perfectly
         return ChatResponse(
-            response="Our technical retrieval engine is currently experiencing high latency. Please try again in 60 seconds.",
+            response="Our technical specification retrieval engine is currently experiencing upstream network latency. Please try again in 60 seconds.",
             intent="ERROR_FALLBACK"
         )
