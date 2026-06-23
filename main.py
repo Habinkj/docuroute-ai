@@ -1,45 +1,54 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from agent import app as langgraph_app  # This imports the compiled brain from agent.py
+import logging
+from agent import app as kiliyara_agent  # Importing the compiled LangGraph engine
 
-app = FastAPI()
+# Initialize FastAPI Microservice
+app = FastAPI(title="Kiliyara AI API Gateway", version="1.0.0")
 
-# 1. The Vercel Gatekeeper (CORS)
+# Configure CORS for decoupled frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],  # Restrict this to your Vercel domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 2. The Data Structure
+# Pydantic Schema Validation
 class ChatRequest(BaseModel):
     message: str
 
-# 3. The LangGraph Endpoint
-@app.post("/api/chat")
+class ChatResponse(BaseModel):
+    response: str
+    intent: str
+
+# Health Check Endpoint (Keep-Alive for Render Free Tier)
+@app.get("/health")
+async def health_check():
+    """Decoy endpoint to keep Render awake without triggering Gemini."""
+    return {"status": "Kiliyara AI backend is active and operational."}
+
+# Primary AI Routing Endpoint with Apex Fault Tolerance
+@app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    print(f"Incoming message from frontend: {request.message}")
-    
     try:
-        # Feed the user's message into the LangGraph state machine
-        result = langgraph_app.invoke({"user_message": request.message})
+        # Trigger the LangGraph state machine
+        result = kiliyara_agent.invoke({"user_message": request.message})
         
-        # Extract the final answer from the state dictionary
-        bot_reply = result.get("final_answer", "Error: No answer generated.")
+        # Extract the final state variables
+        final_answer = result.get("final_answer", "Error generating response.")
+        detected_intent = result.get("intent", "UNKNOWN")
         
-        # THE FIX: Aligning the JSON keys with the Next.js Armor Plate
-        return {
-            "role": "assistant",
-            "content": bot_reply
-        }
+        return ChatResponse(response=final_answer, intent=detected_intent)
         
     except Exception as e:
-        print(f"LangGraph execution failed: {e}")
-        # THE FIX: The fallback error must also bypass the Armor Plate
-        return {
-            "role": "assistant",
-            "content": "I am currently undergoing maintenance. Please contact the DocuRoute AI sales team directly."
-        }
+        # The Apex Standard: Never fail silently, never crash the ASGI worker.
+        logging.error(f"CRITICAL: Engine invocation failed. Error: {str(e)}")
+        
+        # Return a graceful, structured degradation to the frontend matching the Pydantic schema
+        return ChatResponse(
+            response="Our technical retrieval engine is currently experiencing high latency. Please try again in 60 seconds.",
+            intent="ERROR_FALLBACK"
+        )
