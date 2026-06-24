@@ -19,8 +19,8 @@ app = FastAPI(title="DocuRoute AI API Gateway (CFTech Modernization)", version="
 
 # 2. Hardened Perimeter (CORS): Passes B2B procurement audits while allowing local dev
 ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Local Next.js development
-    "https://docuroute-cftech.vercel.app",  # Placeholder for your live Vercel UI
+    "http://localhost:3000",
+    "https://docuroute-ai.vercel.app", # <-- The exact URL from your screenshot
     os.getenv("FRONTEND_PRODUCTION_URL", "https://cftech.in")
 ]
 
