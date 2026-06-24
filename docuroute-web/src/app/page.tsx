@@ -55,12 +55,12 @@ export default function Home() {
       
       const data = await response.json();
       
-      // THE ARMOR PLATE: Reject null or malformed data before it breaks React
-      if (!data || typeof data !== 'object' || !data.role) {
+      // THE SCHEMA BRIDGE: Validate the backend key "response" exists, then map it to the UI's "content" key
+      if (!data || typeof data !== 'object' || !data.response) {
         throw new Error('Backend returned an invalid or empty data payload.');
       }
 
-      setMessages((prev) => [...prev, data]);
+      setMessages((prev) => [...prev, { role: 'ai', content: data.response }]);
 
     } catch (error) {
       console.error("Failed to fetch from backend:", error);
