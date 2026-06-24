@@ -44,8 +44,8 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      // NOTE: You MUST change this URL once you deploy the new Render backend for this ghost instance.
-      const response = await fetch('https://docuroute-ai.onrender.com/api/chat', {
+      // APEX STANDARD: Hardwired strictly to the live cf-tech-demo production cluster.
+      const response = await fetch('https://cf-tech-demo.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMessage })
