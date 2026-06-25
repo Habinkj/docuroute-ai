@@ -1,73 +1,70 @@
 import logging
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Importing the compiled LangGraph engine under the correct enterprise namespace
-from agent import app as docuroute_agent  
+from agent import app as docuroute_agent
 
-# 1. Enterprise Observability: Configure structured logging
+# Structured logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("DocuRouteGateway")
 
-# Initialize FastAPI Microservice
-app = FastAPI(title="DocuRoute AI API Gateway (CFTech Modernization)", version="1.1.0")
+app = FastAPI(title="DocuRoute AI API Gateway", version="1.1.0")
 
-# 2. Hardened Perimeter (CORS): Passes B2B procurement audits while allowing local dev
+# CORS: every origin the frontend is served from.
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://docuroute-ai.vercel.app", # <-- The exact URL from your screenshot
-    os.getenv("FRONTEND_PRODUCTION_URL", "https://cftech.in")
+    "https://docuroute-ai.vercel.app",   # live frontend
+    os.getenv("FRONTEND_PRODUCTION_URL", ""),
 ]
+# Drop empty entries so an unset env var doesn't add a blank origin.
+ALLOWED_ORIGINS = [o for o in ALLOWED_ORIGINS if o]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS, 
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# Pydantic Schema Validation
+
 class ChatRequest(BaseModel):
     message: str
+
 
 class ChatResponse(BaseModel):
     response: str
     intent: str
 
-# Health Check Endpoint (Keep-Alive for Render Free Tier)
+
 @app.get("/health")
 async def health_check():
-    """Decoy endpoint to keep Render awake without triggering expensive LLM compute."""
-    return {"status": "DocuRoute AI gateway is active, isolated, and non-blocking."}
+    """Keep-alive for Render free tier - no LLM compute."""
+    return {"status": "active"}
 
-# Primary AI Routing Endpoint with Apex Redundancy & Async Non-Blocking Execution
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
-        logger.info(f"Incoming payload received. Length: {len(request.message)} chars")
-        
-        # 3. The Asphyxiation Patch: Using await and .ainvoke() to keep the ASGI event loop open
+        logger.info(f"Incoming payload. Length: {len(request.message)} chars")
+
+        # Async ainvoke keeps the ASGI event loop unblocked under concurrency.
         result = await docuroute_agent.ainvoke({"user_message": request.message})
-        
-        # Extract the final state variables
-        final_answer = result.get("final_answer", "Error generating technical response.")
+
+        final_answer = result.get("final_answer", "Error generating response.")
         detected_intent = result.get("intent", "UNKNOWN")
-        
-        logger.info(f"Execution resolved successfully. Routed Intent: {detected_intent}")
+
+        logger.info(f"Resolved. Intent: {detected_intent}")
         return ChatResponse(response=final_answer, intent=detected_intent)
-        
+
     except Exception as e:
-        # The Apex Standard: Catch at the edge, capture full stack trace in Render logs, never drop the client.
-        logger.error(f"CRITICAL: DocuGraph execution failed. Error: {str(e)}", exc_info=True)
-        
-        # Return a graceful, structured B2B degradation matching the Pydantic schema perfectly
+        logger.error(f"Execution failed: {str(e)}", exc_info=True)
         return ChatResponse(
-            response="Our technical specification retrieval engine is currently experiencing upstream network latency. Please try again in 60 seconds.",
-            intent="ERROR_FALLBACK"
+            response="The retrieval engine is experiencing upstream latency. Please try again shortly.",
+            intent="ERROR_FALLBACK",
         )

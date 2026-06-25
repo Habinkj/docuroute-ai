@@ -28,41 +28,42 @@ class AgentState(TypedDict):
     final_answer: str
 
 # ---------------------------------------------------------
-# THE CLASSIFIER CASCADE (Zero-Cost Optimization)
+# THE CLASSIFIER CASCADE
 # ---------------------------------------------------------
 def route_intent(state: AgentState):
     print("--- NODE: ROUTER (CASCADE ENGINE) ---")
-    message = state["user_message"].lower()
-    
-    # LEVEL 1: Zero-Cost Heuristic Pre-filter
-    # We check for obvious technical keywords. If matched, we route immediately.
-    # Cost: 0 tokens. Latency: < 1ms.
-    tech_keywords = [
-        "specification", "hydraulic", "viscosity", "torque", 
-        "manual", "pressure", "voltage", "machine", "cooker", "capacity"
-    ]
-    
-    if any(kw in message for kw in tech_keywords):
-        print("Status: TECHNICAL (Intercepted by Level 1 Heuristic - 0 Tokens Burned)")
+    message = state["user_message"].lower().strip()
+
+    # LEVEL 0: Conversational intercept (greetings / filler) — route GENERAL, 0 tokens.
+    # Whole-word match so "hi" doesn't fire inside "high-pressure".
+    words = set(message.replace("?", "").replace(".", "").replace(",", "").split())
+    greetings = {"hi", "hello", "hey", "thanks", "thank", "bye", "ok", "okay"}
+    if words & greetings and len(words) <= 5:
+        print("Status: GENERAL (Level 0 conversational intercept - 0 tokens)")
+        return {"intent": "GENERAL"}
+
+    # LEVEL 1: Technical keyword heuristic — whole-word match, 0 tokens.
+    tech_keywords = {
+        "specification", "specifications", "hydraulic", "viscosity", "torque",
+        "manual", "pressure", "voltage", "machine", "machines", "cooker",
+        "capacity", "kilowatts", "kw", "power", "heater", "heaters"
+    }
+    if words & tech_keywords:
+        print("Status: TECHNICAL (Level 1 heuristic - 0 tokens)")
         return {"intent": "TECHNICAL"}
 
-    # LEVEL 2: LLM Evaluation 
-    # Only wakes up the API for ambiguous, nuanced queries.
-    print("Status: Ambiguous query detected. Waking up LLM for classification...")
-    prompt = f"""You are the DocuRoute AI intent router. 
-    Output exactly the word 'TECHNICAL' if the user asks about machinery, metrics, or operations. 
-    Otherwise, output exactly the word 'GENERAL'.
-    User Message: {message}"""
-    
+    # LEVEL 2: LLM evaluation for ambiguous queries.
+    print("Status: Ambiguous - invoking LLM classifier...")
+    prompt = f"""You are the DocuRoute AI intent router.
+Output exactly the word 'TECHNICAL' if the user asks about machinery, metrics, specs, or operations.
+Otherwise output exactly the word 'GENERAL'.
+User Message: {message}"""
     response = llm.invoke(prompt).content.strip().upper()
-    
-    # LEVEL 3: Defensive Guardrail
-    # If the LLM hallucinates extra punctuation or weird capitalization, we catch it safely.
+
     if "TECHNICAL" in response:
-        print("Status: TECHNICAL (Determined by LLM)")
+        print("Status: TECHNICAL (LLM)")
         return {"intent": "TECHNICAL"}
-    
-    print("Status: GENERAL (Determined by LLM Fallback)")
+    print("Status: GENERAL (LLM)")
     return {"intent": "GENERAL"}
 
 # ---------------------------------------------------------
@@ -70,8 +71,7 @@ def route_intent(state: AgentState):
 # ---------------------------------------------------------
 def retrieve_specs(state: AgentState):
     print("--- NODE: RAG ENGINEER ---")
-    message = state["user_message"]
-    docs = retriever.invoke(message)
+    docs = retriever.invoke(state["user_message"])
     context = "\n\n".join([doc.page_content for doc in docs])
     print(f"Retrieved {len(docs)} chunks of technical data.")
     return {"technical_context": context}
@@ -83,66 +83,53 @@ def general_chat(state: AgentState):
 def generate_answer(state: AgentState):
     print("--- NODE: FORMATTER ---")
     intent = state["intent"]
-    context = state.get("technical_context", "")
     message = state["user_message"]
-    
+
     if intent == "TECHNICAL":
-        prompt = f"""You are a senior technical sales engineer for DocuRoute AI. 
-        Answer the user's question using ONLY the following context. 
-        If the context does not contain the answer, do not guess. Say you need to consult the engineering team.
-        
-        Context: {context}
-        Question: {message}"""
+        context = state.get("technical_context", "")
+        prompt = f"""You are a senior technical sales engineer for DocuRoute AI.
+Answer using ONLY the following context. If the context lacks the answer,
+do not guess — say you need to consult the engineering team.
+
+Context: {context}
+Question: {message}"""
     else:
-        prompt = f"""You are a helpful representative for DocuRoute AI. 
-        Respond politely and professionally to this message: {message}"""
-        
+        # Lean general prompt. Capped length to control output tokens.
+        prompt = f"""You are a friendly representative for DocuRoute AI, which sells
+industrial food-processing machinery. Reply in 1-2 short sentences. If the user
+seems interested in buying, warmly invite them to ask about a specific machine.
+
+Message: {message}"""
+
     response = llm.invoke(prompt)
     return {"final_answer": response.content}
 
 # ---------------------------------------------------------
-# THE TRAFFIC LIGHTS (EDGES)
+# EDGES
 # ---------------------------------------------------------
 def route_to_next(state: AgentState):
-    if state["intent"] == "TECHNICAL":
-        return "retrieve_specs"
-    return "general_chat"
+    return "retrieve_specs" if state["intent"] == "TECHNICAL" else "general_chat"
 
 # ---------------------------------------------------------
-# COMPILE THE SYSTEM
+# COMPILE
 # ---------------------------------------------------------
 print("Compiling LangGraph Engine...")
 workflow = StateGraph(AgentState)
-
 workflow.add_node("route_intent", route_intent)
 workflow.add_node("retrieve_specs", retrieve_specs)
 workflow.add_node("general_chat", general_chat)
 workflow.add_node("generate_answer", generate_answer)
-
 workflow.set_entry_point("route_intent")
 workflow.add_conditional_edges("route_intent", route_to_next)
-
 workflow.add_edge("retrieve_specs", "generate_answer")
 workflow.add_edge("general_chat", "generate_answer")
 workflow.add_edge("generate_answer", END)
-
 app = workflow.compile()
 
-# ---------------------------------------------------------
-# LOCAL TESTING TERMINAL
-# ---------------------------------------------------------
 if __name__ == "__main__":
-    print("\n=== DOCUROUTE ENTERPRISE ENGINE ONLINE ===\n")
-    
-    # Test 1: Should be caught by Level 1 (Zero Cost)
-    test_message_1 = "What is the voltage of the Industrial Steam Cooker?"
-    print(f"USER: {test_message_1}")
-    result_1 = app.invoke({"user_message": test_message_1})
-    print(f"\nFINAL OUTPUT:\n{result_1['final_answer']}\n")
-    print("-" * 50)
-    
-    # Test 2: Should bypass Level 1 and trigger Level 2 (LLM Route)
-    test_message_2 = "Hi, I am looking to buy some machines."
-    print(f"USER: {test_message_2}")
-    result_2 = app.invoke({"user_message": test_message_2})
-    print(f"\nFINAL OUTPUT:\n{result_2['final_answer']}\n")
+    print("\n=== DOCUROUTE ENGINE ONLINE ===\n")
+    for msg in ["Hello there!", "Hi, I'm looking to buy some machines.",
+                "What is the voltage of the Industrial Steam Cooker?"]:
+        print(f"USER: {msg}")
+        result = app.invoke({"user_message": msg})
+        print(f"OUTPUT: {result['final_answer']}\n{'-'*50}")
