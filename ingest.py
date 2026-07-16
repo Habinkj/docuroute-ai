@@ -14,7 +14,7 @@ if not api_key:
 print("Starting the ingestion process...")
 
 # 2. Load the Master Catalog
-pdf_path = "data/Caterpillar_Log.pdf"
+pdf_path = "data/master_catalog.pdf"
 try:
     loader = PyMuPDFLoader(pdf_path)
     documents = loader.load()
