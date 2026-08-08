@@ -13,12 +13,12 @@ if not api_key:
 
 # 2. Connect to the Chroma Brain
 print("Connecting to Vector Database...")
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=api_key)
 vector_db = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 retriever = vector_db.as_retriever(search_kwargs={"k": 3})
 
 # 3. Initialize the Core LLM
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
 
 # 4. Define the State
 class AgentState(TypedDict):
@@ -42,22 +42,19 @@ def route_intent(state: AgentState):
         print("Status: GENERAL (Level 0 conversational intercept - 0 tokens)")
         return {"intent": "GENERAL"}
 
-    # LEVEL 1: Technical keyword heuristic — whole-word match, 0 tokens.
-    tech_keywords = {
-        "specification", "specifications", "hydraulic", "viscosity", "torque",
-        "manual", "pressure", "voltage", "machine", "machines", "cooker",
-        "capacity", "kilowatts", "kw", "power", "heater", "heaters"
-    }
-    if words & tech_keywords:
-        print("Status: TECHNICAL (Level 1 heuristic - 0 tokens)")
-        return {"intent": "TECHNICAL"}
-
     # LEVEL 2: LLM evaluation for ambiguous queries.
     print("Status: Ambiguous - invoking LLM classifier...")
     prompt = f"""You are the DocuRoute AI intent router.
-Output exactly the word 'TECHNICAL' if the user asks about machinery, metrics, specs, or operations.
-Otherwise output exactly the word 'GENERAL'.
-User Message: {message}"""
+    Decide if the user is REQUESTING INFORMATION about machinery specifications,
+    capabilities, or operations — or merely making conversation.
+
+    Output exactly 'TECHNICAL' only if the user wants a fact, spec, number, or
+    recommendation from the product catalog.
+    Output exactly 'GENERAL' for greetings, thanks, pleasantries, small talk, or
+    requests to speak to a person — even if they mention a machine in passing.
+
+    User Message: {message}"""
+
     response = llm.invoke(prompt).content.strip().upper()
 
     if "TECHNICAL" in response:
@@ -127,9 +124,6 @@ workflow.add_edge("generate_answer", END)
 app = workflow.compile()
 
 if __name__ == "__main__":
-    print("\n=== DOCUROUTE ENGINE ONLINE ===\n")
-    for msg in ["Hello there!", "Hi, I'm looking to buy some machines.",
-                "What is the voltage of the Industrial Steam Cooker?"]:
-        print(f"USER: {msg}")
-        result = app.invoke({"user_message": msg})
-        print(f"OUTPUT: {result['final_answer']}\n{'-'*50}")
+    print("Testing Flash-Lite with one greeting...")
+    result = app.invoke({"user_message": "Hello there!"})
+    print("REPLY:", result['final_answer'])
