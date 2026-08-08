@@ -7,3 +7,4 @@ langchain-community
 chromadb
 langgraph
 langchain-core
+pymupdf
