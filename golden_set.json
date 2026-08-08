@@ -1,0 +1,82 @@
+{
+  "_comment": "Ground truth for DocuRoute/Kiliyara routing. Each case: query, expected route, and WHY. Grounded in Master_Catalog.pdf (steam cookers, coolers, IQF freezers, conveyors, dip glazer). Add cases as you validate them - honest N over fake volume. C09-C11 are adversarial: added after the base 8 hit 100%, to test whether that 100% survives harder cases.",
+  "cases": [
+    {
+      "id": "C01",
+      "query": "Hello",
+      "expected_intent": "GENERAL",
+      "category": "control",
+      "why": "Pure greeting. Level-0 intercept should catch it with zero routing tokens."
+    },
+    {
+      "id": "C02",
+      "query": "What is the voltage of the Industrial Steam Cooker?",
+      "expected_intent": "TECHNICAL",
+      "category": "control",
+      "why": "Answer is literally in the catalog (440V). Clean keyword-bearing spec lookup. Proves the happy path."
+    },
+    {
+      "id": "C03",
+      "query": "Hi, hope your machines are running well!",
+      "expected_intent": "GENERAL",
+      "category": "keyword_trap",
+      "why": "Contains 'machines' but is pure pleasantry. Old Level-1 keyword matcher failed this; the intent-based prompt fixed it."
+    },
+    {
+      "id": "C04",
+      "query": "Thanks, that takes the pressure off!",
+      "expected_intent": "GENERAL",
+      "category": "keyword_trap",
+      "why": "'pressure' is a technical keyword used here as an idiom. Classic trap for naive matchers."
+    },
+    {
+      "id": "C05",
+      "query": "How much can the big freezer handle at once?",
+      "expected_intent": "TECHNICAL",
+      "category": "level2_intent",
+      "why": "Real capacity question (Spiral IQF: up to 2000kg/hour) but casually phrased with no keyword hit. Tests whether the LLM classifier catches intent rather than words."
+    },
+    {
+      "id": "C06",
+      "query": "Which one stays cold enough for shrimp?",
+      "expected_intent": "TECHNICAL",
+      "category": "level2_intent",
+      "why": "Temperature-range question (-40C freezers). Zero keywords, pure intent. Should route TECHNICAL via LLM."
+    },
+    {
+      "id": "C07",
+      "query": "Do you have anyone who can walk me through the cooker options?",
+      "expected_intent": "GENERAL",
+      "category": "contested",
+      "why": "CONTESTED. Contains 'cooker' but the intent is 'reach a human', not retrieve a spec. Labeled GENERAL: the user wants a person, not data. The intent-based prompt now handles this via its 'requests to speak to a person' rule."
+    },
+    {
+      "id": "C08",
+      "query": "Which of your machines would suit a fish plant?",
+      "expected_intent": "TECHNICAL",
+      "category": "contested",
+      "why": "CONTESTED. Advisory/recommendation intent. Labeled TECHNICAL because answering needs catalog knowledge (Rain Water Shower Cooler is spec'd 'For Fish'). Known gap: router has no dedicated 'recommend' bucket."
+    },
+    {
+      "id": "C09",
+      "query": "Hi! What is the freezer's capacity?",
+      "expected_intent": "TECHNICAL",
+      "category": "adversarial_mixed_intent",
+      "why": "ADVERSARIAL. Opens with a greeting ('Hi!') but the dominant intent is a real spec question. Should be TECHNICAL. Tests whether the Level-0 greeting intercept OVER-TRIGGERS and wrongly grabs a genuine question just because it starts with a greeting word. Most likely place for a hidden bug."
+    },
+    {
+      "id": "C10",
+      "query": "Thanks, the 440V cooker you sent runs great on our floor!",
+      "expected_intent": "GENERAL",
+      "category": "adversarial_keyword_loaded",
+      "why": "ADVERSARIAL. Stuffed with technical tokens (440V, cooker, runs) but the intent is gratitude, not a query. Should be GENERAL. Harder than C03/C04 because it carries an actual spec value (440V), maximally tempting a spec-matcher to misroute."
+    },
+    {
+      "id": "C11",
+      "query": "Is the spiral freezer better than the blast freezer for squid?",
+      "expected_intent": "TECHNICAL",
+      "category": "adversarial_comparison",
+      "why": "ADVERSARIAL. A comparison/recommendation question needing catalog knowledge (Spiral IQF specs, product applications incl. squid). Labeled TECHNICAL because it requires retrieving and reasoning over specs. Probes the same advisory gap as C08 from a different angle - if this misroutes, it confirms a pattern, not a one-off."
+    }
+  ]
+}

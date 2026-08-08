@@ -1,0 +1,3 @@
+{"id": "C07", "query": "Do you have anyone who can walk me through the cooker options?", "runs": ["GENERAL", "GENERAL", "GENERAL"], "stable": true, "correct": true, "majority_route": "GENERAL", "verdict": "PASS", "note": "", "expected": "GENERAL"}
+{"id": "C10", "query": "Thanks, the 440V cooker you sent runs great on our floor!", "runs": ["GENERAL", "GENERAL", "GENERAL"], "stable": true, "correct": true, "majority_route": "GENERAL", "verdict": "PASS", "note": "", "expected": "GENERAL"}
+{"id": "C11", "query": "Is the spiral freezer better than the blast freezer for squid?", "runs": ["TECHNICAL", "TECHNICAL", "TECHNICAL"], "stable": true, "correct": true, "majority_route": "TECHNICAL", "verdict": "PASS", "note": "", "expected": "TECHNICAL"}
